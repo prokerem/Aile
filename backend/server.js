@@ -70,17 +70,19 @@ const MesajModel = mongoose.model('Mesaj', MesajSema);
 // Render panelindeki Environment kısmına ONESIGNAL_API_KEY eklemeniz önerilir.
 async function bildirimGonder(gonderen, metin) {
     try {
-        const apiKey = process.env.ONESIGNAL_API_KEY || "BURAYA_REST_API_KEYINIZI_YAZIN";
+        // Kopyaladığınız uzun REST API Key'i buradaki tırnakların içine yapıştırın
+        const apiKey = "uiermt3mkegdmzkbelbcs7qcd"; 
         
         await axios.post('https://onesignal.com', {
-            app_id: "782bbd9b-b37e-404b-88c3-d229ef41e3b0", // Sizin OneSignal App ID'niz
-            included_segments: ["All Users"], // İzin veren tüm aile üyelerinin telefonuna gider
-            headings: { "en": gonderen, "tr": gonderen }, // Bildirim başlığı mesajı atan kişi olur
-            contents: { "en": metin, "tr": metin }, // Bildirim içeriği mesaj metni olur
+            app_id: "782bbd9b-b37e-404b-88c3-d229ef41e3b0", 
+            included_segments: ["All Users"], 
+            headings: { "en": gonderen, "tr": gonderen }, 
+            contents: { "en": metin, "tr": metin }, 
         }, {
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
-                'Authorization': `Basic ${apiKey}`
+                // Başındaki 'Basic ' yazısını ve boşluğu kesinlikle silmeyin
+                'Authorization': `Basic ${apiKey}` 
             }
         });
         console.log(`🔔 [BİLDİRİM] -> ${gonderen} adlı kullanıcıdan tüm aileye bildirim fırlatıldı!`);
@@ -88,6 +90,7 @@ async function bildirimGonder(gonderen, metin) {
         console.error("❌ Bildirim gönderilirken hata oluştu:", error.response ? error.response.data : error.message);
     }
 }
+
 
 
 // --- 10 SANİYEDE BİR YENİ MESAJ KONTROLÜ ---
