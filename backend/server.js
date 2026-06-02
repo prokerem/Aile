@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const axios = require('axios'); // 🔔 BİLDİRİM İÇİN EKLENDİ
 
 const app = express();
 app.use(cors());
@@ -26,7 +27,7 @@ if (!mongoURI) {
     console.error('❌ KRİTİK HATA: Render panelinde MONGO_URI değişkeni tanımlanmamış veya boş!');
 }
 
-// BAĞLANTI DURUMU TAKİPÇİLERİ (Gelişmiş Hata Türleri İçin)
+// BAĞLANTI DURUMU TAKİPÇİLERİ
 mongoose.connection.on('connecting', () => {
     console.log('🔄 MongoDB Atlas bulutuna bağlanılmaya çalışılıyor...');
 });
@@ -64,11 +65,35 @@ const MesajSema = new mongoose.Schema({
 });
 const MesajModel = mongoose.model('Mesaj', MesajSema);
 
-// --- 10 SANİYEDE BİR YENİ MESAJ KONTROLÜ (İSTEDİĞİNİZ ÖZELLİK) ---
+
+// 🔔 1. YENİ: ONESIGNAL BİLDİRİM GÖNDERME FONKSİYONU
+// Render panelindeki Environment kısmına ONESIGNAL_API_KEY eklemeniz önerilir.
+async function bildirimGonder(gonderen, metin) {
+    try {
+        const apiKey = process.env.ONESIGNAL_API_KEY || "BURAYA_REST_API_KEYINIZI_YAZIN";
+        
+        await axios.post('https://onesignal.com', {
+            app_id: "782bbd9b-b37e-404b-88c3-d229ef41e3b0", // Sizin OneSignal App ID'niz
+            included_segments: ["All Users"], // İzin veren tüm aile üyelerinin telefonuna gider
+            headings: { "en": gonderen, "tr": gonderen }, // Bildirim başlığı mesajı atan kişi olur
+            contents: { "en": metin, "tr": metin }, // Bildirim içeriği mesaj metni olur
+        }, {
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Authorization': `Basic ${apiKey}`
+            }
+        });
+        console.log(`🔔 [BİLDİRİM] -> ${gonderen} adlı kullanıcıdan tüm aileye bildirim fırlatıldı!`);
+    } catch (error) {
+        console.error("❌ Bildirim gönderilirken hata oluştu:", error.response ? error.response.data : error.message);
+    }
+}
+
+
+// --- 10 SANİYEDE BİR YENİ MESAJ KONTROLÜ ---
 let sonKontrolZamani = new Date().toISOString();
 
 setInterval(async () => {
-    // Eğer veritabanına bağlı değilsek sorgu atmayıp loga bilgi yazalım
     if (mongoose.connection.readyState !== 1) {
         console.log('⏳ Veritabanı bağlı olmadığı için 10 saniyelik mesaj kontrolü atlandı.');
         return;
@@ -76,16 +101,13 @@ setInterval(async () => {
 
     try {
         console.log('🔍 [10 Saniye Kontrolü] Yeni mesaj var mı bakılıyor...');
-        // Son kontrol zamanından sonra eklenmiş mesajları bul
         const yeniMesajlar = await MesajModel.find({
             tarih: { $gt: sonKontrolZamani }
         });
 
         if (yeniMesajlar.length > 0) {
             console.log(`✉️ Veritabanında ${yeniMesajlar.length} adet yeni mesaj tespit edildi!`);
-            // Aktif cihazlara yeni verileri gönder
             io.emit('otomatik_yeni_mesajlar', yeniMesajlar);
-            // Zaman damgasını güncelle
             sonKontrolZamani = new Date().toISOString();
         } else {
             console.log('✅ Yeni mesaj yok.');
@@ -93,7 +115,7 @@ setInterval(async () => {
     } catch (err) {
         console.error('❌ 10 saniyelik otomatik kontrol sırasında hata oluştu:', err.message);
     }
-}, 10000); // 10 saniye (10000 ms)
+}, 10000); 
 // -------------------------------------------------------------
 
 let aileDurumlari = {
@@ -130,13 +152,23 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 🔔 2. YENİ: YENİ MESAJ GELDİĞİNDE BİLDİRİMİ TETİKLEME ALANI
     socket.on('yeni_mesaj', async (mesajPaketi) => {
         try {
             const yeniKayiMesaj = new MesajModel(mesajPaketi);
             await yeniKayiMesaj.save();
             io.emit('mesajı_al', mesajPaketi);
-            // Manuel eklenen mesajların zaman damgasını da kaçırmamak için güncelleyelim
             sonKontrolZamani = new Date().toISOString();
+
+            // Mesajın tipine göre telefona bildirim fırlatıyoruz
+            if (mesajPaketi.metin) {
+                bildirimGonder(mesajPaketi.gonderen, mesajPaketi.metin);
+            } else if (mesajPaketi.resim) {
+                bildirimGonder(mesajPaketi.gonderen, "📷 Bir resim gönderdi.");
+            } else if (mesajPaketi.ses) {
+                bildirimGonder(mesajPaketi.gonderen, "🎵 Bir ses mesajı gönderdi.");
+            }
+
         } catch (error) {
             console.error('❌ Mesaj buluta kaydedilemedi. Detay:', error.message);
         }
