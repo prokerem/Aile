@@ -9,10 +9,17 @@ const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
+// Eski io tanımını silip yerine bunu yapıştırın:
 const io = new Server(server, { 
-    cors: { origin: "*" },
-    maxHttpBufferSize: 1e7 // Büyük dosyalar için 10MB tavan
+    cors: { 
+        origin: "*", // Her yerden gelen isteğe izin ver
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ["websocket", "polling"],
+    maxHttpBufferSize: 1e7 
 });
+
 
 // GİZLİ ENV DOSYASINDAN MONGODB LINKINI OKUMA
 const mongoURI = process.env.MONGO_URI;
