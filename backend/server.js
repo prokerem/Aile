@@ -116,6 +116,9 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3001, () => {
-    console.log('Bulut Senkronizasyonlu Aile Sistemi Aktif!');
+// Render platformunun vereceği dinamik portu ayarlar
+const PORT = process.env.PORT || 3001; 
+
+server.listen(PORT, () => {
+    console.log(`Bulut Senkronizasyonlu Aile Sistemi Aktif! Port: ${PORT}`);
 });
