@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 
 // Linkin sonunda kesinlikle eğik çizgi (/) OLMAMALIDIR
-const socket = io("https://onrender.com", {
+const socket = io("https://aile.onrender.com", {
     transports: ["websocket", "polling"] // Vercel ve Render arasındaki iletişimi garantiye alır
 });
 
